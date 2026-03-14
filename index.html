@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Baseposting AI Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: #020c1b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(30,64,175,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(59,130,246,0.12) 0%, transparent 50%);
+    }
+    .page-header { text-align: center; margin-bottom: 24px; }
+    .page-header h1 { font-size: 32px; font-weight: 700; color: #fff; letter-spacing: 2px; text-transform: uppercase; }
+    .page-header h1 span { background: linear-gradient(90deg,#3b82f6,#93c5fd); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .page-header p { color: #60a5fa; font-size: 14px; margin-top: 6px; letter-spacing: 0.5px; }
+
+    .agent-card {
+      width: 100%; max-width: 700px;
+      background: linear-gradient(135deg,#0a1628 0%,#0d2044 60%,#0a1e3d 100%);
+      border: 1px solid rgba(59,130,246,0.3);
+      border-radius: 20px; overflow: hidden;
+      box-shadow: 0 0 60px rgba(59,130,246,0.15), 0 24px 64px rgba(0,0,0,0.6);
+      position: relative;
+    }
+    .bg-dots {
+      position: absolute; inset: 0; pointer-events: none; z-index: 0;
+      background-image: radial-gradient(circle, rgba(59,130,246,0.12) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .bp-header {
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(59,130,246,0.2);
+      padding: 18px 24px;
+      display: flex; align-items: center; gap: 14px;
+      position: relative; z-index: 1;
+    }
+    .bp-logo {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg,#3b82f6,#1d4ed8);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; box-shadow: 0 0 20px rgba(59,130,246,0.5); flex-shrink: 0;
+    }
+    .bp-title { color: #fff; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    .bp-subtitle { color: #93c5fd; font-size: 12px; margin-top: 2px; }
+    .bp-status {
+      margin-left: auto;
+      background: rgba(59,130,246,0.15);
+      border: 1px solid rgba(59,130,246,0.35);
+      color: #93c5fd; font-size: 11px; font-weight: 500;
+      padding: 5px 12px; border-radius: 20px;
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    }
+    .status-dot { width:7px; height:7px; border-radius:50%; background:#22c55e; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .bp-tabs { display:flex; gap:8px; padding:14px 24px 0; position:relative; z-index:1; }
+    .bp-tab {
+      padding: 8px 18px; border-radius: 9px; font-size: 13px; font-weight: 500;
+      font-family: 'Space Grotesk', sans-serif;
+      cursor: pointer; border: 1px solid rgba(59,130,246,0.3);
+      color: #93c5fd; background: transparent; transition: all 0.2s;
+    }
+    .bp-tab.active { background:#3b82f6; border-color:#3b82f6; color:#fff; box-shadow:0 0 14px rgba(59,130,246,0.45); }
+    .bp-tab:hover:not(.active) { background:rgba(59,130,246,0.1); }
+
+    .chat-area {
+      padding: 16px 24px;
+      display: flex; flex-direction: column; gap: 14px;
+      height: 380px; overflow-y: auto;
+      position: relative; z-index: 1;
+    }
+    .chat-area::-webkit-scrollbar { width:4px; }
+    .chat-area::-webkit-scrollbar-thumb { background:rgba(59,130,246,0.3); border-radius:4px; }
+
+    .msg { display:flex; gap:10px; align-items:flex-start; }
+    .msg.user { flex-direction:row-reverse; }
+    .msg-av {
+      width:34px; height:34px; border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:15px; flex-shrink:0;
+    }
+    .msg-av.bot { background:linear-gradient(135deg,#3b82f6,#1d4ed8); box-shadow:0 0 12px rgba(59,130,246,0.4); }
+    .msg-av.usr { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); }
+    .msg-bubble { max-width:78%; padding:11px 15px; border-radius:14px; font-size:14px; line-height:1.65; }
+    .msg.bot .msg-bubble {
+      background:rgba(255,255,255,0.05); border:1px solid rgba(59,130,246,0.18);
+      color:#dbeafe; border-radius:4px 14px 14px 14px;
+    }
+    .msg.user .msg-bubble {
+      background:rgba(59,130,246,0.22); border:1px solid rgba(59,130,246,0.4);
+      color:#fff; border-radius:14px 4px 14px 14px;
+    }
+    .art-wrap { background:rgba(255,255,255,0.03); border:1px solid rgba(59,130,246,0.25); border-radius:12px; overflow:hidden; }
+    .art-wrap canvas { display:block; width:100%; }
+    .art-label { font-size:11px; color:#60a5fa; padding:6px 10px; }
+
+    .typing { display:flex; gap:5px; align-items:center; padding:4px 2px; }
+    .typing span { width:8px; height:8px; border-radius:50%; background:#3b82f6; animation:bounce 1.2s infinite; }
+    .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+    @keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-7px)}}
+
+    .quick-btns { display:flex; flex-wrap:wrap; gap:7px; padding:0 24px 10px; position:relative; z-index:1; }
+    .qbtn {
+      background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.28);
+      color:#93c5fd; font-size:12px; font-family:'Space Grotesk',sans-serif;
+      padding:5px 13px; border-radius:20px; cursor:pointer; transition:all 0.2s;
+    }
+    .qbtn:hover { background:rgba(59,130,246,0.25); color:#fff; border-color:rgba(59,130,246,0.5); }
+
+    .input-area {
+      padding:12px 24px 20px; display:flex; gap:10px; align-items:center;
+      background:rgba(255,255,255,0.02); border-top:1px solid rgba(59,130,246,0.15);
+      position:relative; z-index:1;
+    }
+    .bp-input {
+      flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(59,130,246,0.3);
+      border-radius:11px; padding:11px 16px; color:#fff; font-size:14px;
+      font-family:'Space Grotesk',sans-serif; outline:none; transition:all 0.2s;
+    }
+    .bp-input::placeholder { color:rgba(255,255,255,0.28); }
+    .bp-input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.18); }
+    .bp-send {
+      width:42px; height:42px; background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+      border:none; border-radius:11px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      font-size:17px; transition:all 0.2s; box-shadow:0 0 14px rgba(59,130,246,0.45); flex-shrink:0;
+    }
+    .bp-send:hover { transform:scale(1.06); box-shadow:0 0 22px rgba(59,130,246,0.65); }
+    .bp-send:disabled { opacity:0.45; transform:none; cursor:not-allowed; }
+
+    .page-footer { margin-top:18px; text-align:center; color:rgba(96,165,250,0.5); font-size:12px; }
+    .page-footer a { color:#60a5fa; text-decoration:none; }
+    .page-footer a:hover { text-decoration:underline; }
+
+    @media(max-width:500px){
+      .page-header h1{font-size:24px;}
+      .bp-header{padding:14px 16px;}
+      .chat-area{padding:12px 16px; height:320px;}
+      .quick-btns{padding:0 16px 8px;}
+      .input-area{padding:10px 16px 16px;}
+      .bp-tabs{padding:12px 16px 0;}
+      .bp-status{display:none;}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>BASE<span>POSTING</span></h1>
+    <p>🔵 AI Agent · Blue &amp; White Universe · Free for Everyone</p>
+  </div>
+
+  <div class="agent-card">
+    <div class="bg-dots"></div>
+    <div class="bp-header">
+      <div class="bp-logo">🔵</div>
+      <div>
+        <div class="bp-title">BASEPOSTING</div>
+        <div class="bp-subtitle">AI Agent · Powered by Claude</div>
+      </div>
+      <div class="bp-status"><div class="status-dot"></div>Online · Free</div>
+    </div>
+
+    <div class="bp-tabs">
+      <button class="bp-tab active" id="tab-chat" onclick="setMode('chat')">💬 Ask AI</button>
+      <button class="bp-tab" id="tab-art" onclick="setMode('art')">🎨 Create Art</button>
+      <button class="bp-tab" id="tab-info" onclick="setMode('info')">ℹ️ About</button>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+      <div class="msg bot">
+        <div class="msg-av bot">🔵</div>
+        <div class="msg-bubble">
+          Hey there! I'm <strong>Baseposting AI</strong> — your blue &amp; white universe companion! 👋<br><br>
+          Here's what I can do for you:<br>
+          • Answer any question you have 💙<br>
+          • Generate stunning <strong>Blue &amp; White Art</strong> 🎨<br>
+          • Share ideas, info &amp; inspiration 🌊<br><br>
+          100% free for everyone — no login needed. What can I help you with today?
+        </div>
+      </div>
+    </div>
+
+    <div class="quick-btns" id="quickBtns">
+      <button class="qbtn" onclick="quickAsk('Create ocean wave art')">🌊 Ocean Waves</button>
+      <button class="qbtn" onclick="quickAsk('Create blue white abstract art')">✨ Abstract Art</button>
+      <button class="qbtn" onclick="quickAsk('What is Baseposting?')">❓ What is Baseposting?</button>
+      <button class="qbtn" onclick="quickAsk('Tell me about the color blue')">🔵 About Blue</button>
+    </div>
+
+    <div class="input-area">
+      <input class="bp-input" id="userInput" placeholder="Ask me anything or request blue &amp; white art..."
+        onkeydown="if(event.key==='Enter')sendMsg()" />
+      <button class="bp-send" id="sendBtn" onclick="sendMsg()">➤</button>
+    </div>
+  </div>
+
+  <div class="page-footer">
+    Built with 💙 · Powered by <a href="https://anthropic.com" target="_blank">Anthropic Claude</a> · Free &amp; Open to All
+  </div>
+
+  <script>
+    let artCount = 0;
+
+    function setMode(m) {
+      ['chat','art','info'].forEach(t => document.getElementById('tab-'+t).classList.toggle('active', t===m));
+      const input = document.getElementById('userInput');
+      const qbtns = document.getElementById('quickBtns');
+      if (m==='art') {
+        input.placeholder = 'Describe your art... (e.g. "ocean waves", "night sky", "geometric")';
+        qbtns.innerHTML = `
+          <button class="qbtn" onclick="quickAsk('Create ocean wave art')">🌊 Ocean Waves</button>
+          <button class="qbtn" onclick="quickAsk('Create blue white geometric art')">◆ Geometric</button>
+          <button class="qbtn" onclick="quickAsk('Create night sky art')">🌌 Night Sky</button>
+          <button class="qbtn" onclick="quickAsk('Create abstract fluid blue art')">💧 Fluid Art</button>
+          <button class="qbtn" onclick="quickAsk('Create crystal prism art')">💎 Crystal</button>`;
+      } else if (m==='info') {
+        appendMsg('bot',`<strong>Baseposting AI Agent</strong> 🔵<br><br>
+          • <strong>Theme</strong>: Exclusive Blue &amp; White palette<br>
+          • <strong>Capabilities</strong>: AI Chat + Generative Art<br>
+          • <strong>Access</strong>: Free for all users worldwide<br>
+          • <strong>Model</strong>: Claude Sonnet 4 by Anthropic<br>
+          • <strong>Art Engine</strong>: HTML5 Canvas (6 styles)<br>
+          • <strong>Deployed on</strong>: Vercel 🚀<br><br>
+          Share the link with anyone — works on all devices! 💙`);
+        input.placeholder = 'Ask me anything...';
+        qbtns.innerHTML = `
+          <button class="qbtn" onclick="quickAsk('What can you do?')">💡 Capabilities</button>
+          <button class="qbtn" onclick="quickAsk('Who made you?')">🤖 Who made you?</button>`;
+      } else {
+        input.placeholder = 'Ask me anything or request blue & white art...';
+        qbtns.innerHTML = `
+          <button class="qbtn" onclick="quickAsk('Create ocean wave art')">🌊 Ocean Waves</button>
+          <button class="qbtn" onclick="quickAsk('Create blue white abstract art')">✨ Abstract Art</button>
+          <button class="qbtn" onclick="quickAsk('What is Baseposting?')">❓ What is Baseposting?</button>
+          <button class="qbtn" onclick="quickAsk('Tell me about the color blue')">🔵 About Blue</button>`;
+      }
+    }
+
+    function quickAsk(q) { document.getElementById('userInput').value=q; sendMsg(); }
+
+    function appendMsg(who, html) {
+      const area = document.getElementById('chatArea');
+      const div = document.createElement('div');
+      div.className = 'msg '+(who==='user'?'user':'bot');
+      div.innerHTML = `<div class="msg-av ${who==='user'?'usr':'bot'}">${who==='user'?'👤':'🔵'}</div><div class="msg-bubble">${html}</div>`;
+      area.appendChild(div); area.scrollTop = area.scrollHeight;
+    }
+
+    function showTyping() {
+      const area = document.getElementById('chatArea');
+      const div = document.createElement('div');
+      div.className='msg bot'; div.id='typing-ind';
+      div.innerHTML=`<div class="msg-av bot">🔵</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+      area.appendChild(div); area.scrollTop=area.scrollHeight;
+    }
+    function hideTyping() { const t=document.getElementById('typing-ind'); if(t)t.remove(); }
+
+    function isArtRequest(text) {
+      return ['art','create','draw','paint','generate','make','design','visual','illustration',
+        'wave','ocean','geometric','abstract','sky','fluid','pattern','picture','image',
+        'artwork','crystal','diamond','landscape','render'].some(k=>text.toLowerCase().includes(k));
+    }
+
+    function generateBlueArt(description) {
+      artCount++;
+      const id = 'canvas-'+artCount;
+      const area = document.getElementById('chatArea');
+      const div = document.createElement('div');
+      div.className='msg bot';
+      div.innerHTML=`<div class="msg-av bot">🔵</div><div class="msg-bubble" style="max-width:92%;padding:8px;"><div class="art-wrap"><canvas id="${id}" width="600" height="280"></canvas></div><div class="art-label">✨ Blue &amp; White Art — "${description.substring(0,45)}"</div></div>`;
+      area.appendChild(div); area.scrollTop=area.scrollHeight;
+
+      setTimeout(() => {
+        const canvas=document.getElementById(id); if(!canvas)return;
+        const ctx=canvas.getContext('2d'); const W=600,H=280;
+        const desc=description.toLowerCase();
+
+        const drawWave=()=>{
+          const g=ctx.createLinearGradient(0,0,0,H);
+          g.addColorStop(0,'#071428');g.addColorStop(1,'#0d3a7a');
+          ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+          for(let i=0;i<10;i++){
+            ctx.beginPath();const y=H*0.28+i*20,amp=20-i*1.4;ctx.moveTo(0,y);
+            for(let x=0;x<=W;x+=3)ctx.lineTo(x,y+Math.sin((x/W)*Math.PI*5+i*0.8)*amp+Math.cos(x/55)*7);
+            ctx.strokeStyle=`rgba(${90+i*16},${155+i*8},255,${0.72-i*0.06})`;ctx.lineWidth=2.5-i*0.18;ctx.stroke();
+          }
+          for(let s=0;s<80;s++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H*0.45,Math.random()*2+0.4,0,Math.PI*2);ctx.fillStyle=`rgba(200,230,255,${Math.random()*0.65+0.15})`;ctx.fill();}
+        };
+        const drawGeometric=()=>{
+          ctx.fillStyle='#050e1f';ctx.fillRect(0,0,W,H);
+          for(let i=0;i<40;i++){
+            const x=Math.random()*W,y=Math.random()*H,s=Math.random()*55+8;
+            ctx.strokeStyle=`rgba(50,${Math.floor(Math.random()*155+100)},255,${Math.random()*0.5+0.1})`;ctx.lineWidth=1;
+            if(i%3===0)ctx.strokeRect(x-s/2,y-s/2,s,s);
+            else if(i%3===1){ctx.beginPath();ctx.arc(x,y,s/2,0,Math.PI*2);ctx.stroke();}
+            else{ctx.beginPath();ctx.moveTo(x,y-s/2);ctx.lineTo(x+s/2,y+s/2);ctx.lineTo(x-s/2,y+s/2);ctx.closePath();ctx.stroke();}
+          }
+          const grd=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,180);
+          grd.addColorStop(0,'rgba(59,130,246,0.1)');grd.addColorStop(1,'transparent');
+          ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+        };
+        const drawNight=()=>{
+          const g=ctx.createLinearGradient(0,0,0,H);
+          g.addColorStop(0,'#010b19');g.addColorStop(0.55,'#0c2461');g.addColorStop(1,'#1e3a8a');
+          ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+          for(let s=0;s<160;s++){ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H*0.72,Math.random()*1.6+0.3,0,Math.PI*2);ctx.fillStyle=`rgba(220,240,255,${Math.random()*0.85+0.15})`;ctx.fill();}
+          const mx=W*0.78,my=H*0.2,mg=ctx.createRadialGradient(mx,my,0,mx,my,34);
+          mg.addColorStop(0,'rgba(255,255,255,0.95)');mg.addColorStop(0.5,'rgba(200,225,255,0.65)');mg.addColorStop(1,'transparent');
+          ctx.fillStyle=mg;ctx.beginPath();ctx.arc(mx,my,34,0,Math.PI*2);ctx.fill();
+          for(let w=0;w<6;w++){ctx.beginPath();for(let x=0;x<=W;x+=3)ctx.lineTo(x,H*0.72+w*14+Math.sin(x/38+w)*7);ctx.strokeStyle=`rgba(100,180,255,${0.42-w*0.06})`;ctx.lineWidth=1.8;ctx.stroke();}
+        };
+        const drawFluid=()=>{
+          const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#0f172a');bg.addColorStop(1,'#1e3a8a');
+          ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+          [[140,80,100],[320,140,85],[230,60,65],[70,160,75],[420,100,88],[200,200,95],[480,60,70]].forEach(([bx,by,br],i)=>{
+            const stops=['rgba(59,130,246','rgba(96,165,250','rgba(147,197,253','rgba(219,234,254','rgba(30,64,175','rgba(37,99,235','rgba(191,219,254'];
+            const g2=ctx.createRadialGradient(bx,by,0,bx,by,br);
+            g2.addColorStop(0,stops[i%stops.length]+',0.55)');g2.addColorStop(1,stops[(i+2)%stops.length]+',0)');
+            ctx.fillStyle=g2;ctx.beginPath();ctx.arc(bx,by,br,0,Math.PI*2);ctx.fill();
+          });
+        };
+        const drawAbstract=()=>{
+          ctx.fillStyle='#040f20';ctx.fillRect(0,0,W,H);
+          for(let i=0;i<30;i++){ctx.beginPath();ctx.moveTo(Math.random()*W,Math.random()*H);ctx.quadraticCurveTo(Math.random()*W,Math.random()*H,Math.random()*W,Math.random()*H);ctx.strokeStyle=`rgba(50,${Math.floor(Math.random()*155+100)},255,${Math.random()*0.5+0.1})`;ctx.lineWidth=Math.random()*3+0.5;ctx.stroke();}
+          for(let d=0;d<18;d++){const dx=Math.random()*W,dy=Math.random()*H,dr=Math.random()*45+8,dg=ctx.createRadialGradient(dx,dy,0,dx,dy,dr);dg.addColorStop(0,'rgba(100,180,255,0.18)');dg.addColorStop(1,'transparent');ctx.fillStyle=dg;ctx.beginPath();ctx.arc(dx,dy,dr,0,Math.PI*2);ctx.fill();}
+        };
+        const drawCrystal=()=>{
+          ctx.fillStyle='#030c1d';ctx.fillRect(0,0,W,H);
+          const cx=W/2,cy=H/2;
+          for(let r=1;r<7;r++)for(let a=0;a<12;a++){
+            const ang=(a/12)*Math.PI*2,x1=cx+Math.cos(ang)*(r*22),y1=cy+Math.sin(ang)*(r*22),x2=cx+Math.cos(ang+Math.PI/6)*(r*22+22),y2=cy+Math.sin(ang+Math.PI/6)*(r*22+22);
+            ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(x1,y1);ctx.lineTo(x2,y2);ctx.closePath();
+            ctx.strokeStyle=`rgba(100,${180+r*8},255,0.35)`;ctx.lineWidth=0.8;ctx.stroke();
+            ctx.fillStyle=`rgba(15,70,${170+r*12},0.07)`;ctx.fill();
+          }
+          const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,70);cg.addColorStop(0,'rgba(200,230,255,0.28)');cg.addColorStop(1,'transparent');ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,70,0,Math.PI*2);ctx.fill();
+          for(let p=0;p<40;p++){ctx.beginPath();ctx.arc(cx+(Math.random()-0.5)*200,cy+(Math.random()-0.5)*160,Math.random()*2+0.5,0,Math.PI*2);ctx.fillStyle=`rgba(200,220,255,${Math.random()*0.6+0.2})`;ctx.fill();}
+        };
+
+        if(desc.includes('wave')||desc.includes('ocean')||desc.includes('sea'))drawWave();
+        else if(desc.includes('geometric')||desc.includes('pattern')||desc.includes('shape'))drawGeometric();
+        else if(desc.includes('night')||desc.includes('sky')||desc.includes('star')||desc.includes('moon'))drawNight();
+        else if(desc.includes('fluid')||desc.includes('liquid')||desc.includes('flow'))drawFluid();
+        else if(desc.includes('crystal')||desc.includes('diamond')||desc.includes('prism'))drawCrystal();
+        else [drawWave,drawGeometric,drawNight,drawFluid,drawAbstract,drawCrystal][artCount%6]();
+      },80);
+    }
+
+    async function sendMsg() {
+      const input=document.getElementById('userInput');
+      const text=input.value.trim(); if(!text)return;
+      input.value=''; document.getElementById('sendBtn').disabled=true;
+      appendMsg('user',text); showTyping();
+
+      if(isArtRequest(text)){
+        await new Promise(r=>setTimeout(r,700)); hideTyping();
+        appendMsg('bot','🎨 Generating <strong>Blue &amp; White Art</strong> just for you...');
+        generateBlueArt(text); document.getElementById('sendBtn').disabled=false; return;
+      }
+
+      try {
+        const res=await fetch('/api/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({messages:[{role:'user',content:text}]})
+        });
+        const data=await res.json(); hideTyping();
+        const reply=data.content?.map(c=>c.text||'').join('')||'Oops, something went wrong. Try again! 🔵';
+        appendMsg('bot',reply.replace(/\n/g,'<br>'));
+      } catch(e) {
+        hideTyping(); appendMsg('bot','Connection issue — please try again! 🌊');
+      }
+      document.getElementById('sendBtn').disabled=false;
+    }
+  </script>
+</body>
+</html>
